@@ -63,7 +63,7 @@ uv pip install -r requirements.txt
 deactivate
 
 # Create cronjob to run every 15 minutes using venv's python and uv
-CRON_CMD="cd $INSTALL_DIR && . .venv/bin/activate && uv python src/main.py >> checkin.log 2>&1"
+CRON_CMD="cd $INSTALL_DIR && source .venv/bin/activate && uv run src/main.py >> checkin.log 2>&1"
 CRON_JOB="*/15 * * * * $CRON_CMD"
 # Remove any existing job for this app
 (crontab -l 2>/dev/null | grep -v "$CRON_CMD" || true; echo "$CRON_JOB") | crontab -
