@@ -22,11 +22,19 @@ INSTALL_DIR="$3"
 # Install git if not present
 if ! command -v git &> /dev/null; then
   echo "[INFO] Installing git..."
-  sudo apt-get update && sudo apt-get install -y git
+  sudo apt-get update && sudo apt-get install -y git uv ruff python3-pip
+
 fi
 
-# Always install uv (upgrade if present)
-pip install --upgrade uv
+# Install python3-venv and pip if not present
+if ! python3 -m venv --help &> /dev/null; then
+  echo "[INFO] Installing python3-venv..."
+  sudo apt-get update && sudo apt-get install -y python3-venv
+fi
+if ! command -v pip &> /dev/null; then
+  echo "[INFO] Installing pip..."
+  sudo apt-get update && sudo apt-get install -y python3-pip
+fi
 
 # Clone or update the repo
 if [ ! -d "$INSTALL_DIR" ]; then
@@ -49,10 +57,9 @@ if [ ! -d ".venv" ]; then
   python3 -m venv .venv
 fi
 
-# Activate venv and install dependencies with uv
-source .venv/bin/activate
+# Install uv in the venv
+. .venv/bin/activate
 uv pip install -r requirements.txt
-
 deactivate
 
 # Create cronjob to run every 15 minutes using venv's python and uv
