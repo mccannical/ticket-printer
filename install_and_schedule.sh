@@ -19,15 +19,14 @@ REPO_URL="$1"
 BRANCH_OR_TAG="$2"
 INSTALL_DIR="$3"
 
-# Install git and uv if not present
+# Install git if not present
 if ! command -v git &> /dev/null; then
   echo "[INFO] Installing git..."
   sudo apt-get update && sudo apt-get install -y git
 fi
-if ! command -v uv &> /dev/null; then
-  echo "[INFO] Installing uv..."
-  pip install uv
-fi
+
+# Always install uv (upgrade if present)
+pip install --upgrade uv
 
 # Clone or update the repo
 if [ ! -d "$INSTALL_DIR" ]; then
@@ -44,14 +43,22 @@ fi
 
 cd "$INSTALL_DIR"
 
-# Install dependencies
-echo "[INFO] Installing dependencies with uv..."
+# Create venv if not present
+if [ ! -d ".venv" ]; then
+  echo "[INFO] Creating virtual environment..."
+  python3 -m venv .venv
+fi
+
+# Activate venv and install dependencies with uv
+source .venv/bin/activate
 uv pip install -r requirements.txt
 
-# Create cronjob to run every 15 minutes
-CRON_CMD="cd $INSTALL_DIR && uv python src/main.py >> checkin.log 2>&1"
+deactivate
+
+# Create cronjob to run every 15 minutes using venv's python and uv
+CRON_CMD="cd $INSTALL_DIR && . .venv/bin/activate && uv python src/main.py >> checkin.log 2>&1"
 CRON_JOB="*/15 * * * * $CRON_CMD"
 # Remove any existing job for this app
 (crontab -l 2>/dev/null | grep -v "$CRON_CMD" || true; echo "$CRON_JOB") | crontab -
 
-echo "[INFO] Installation complete. Check-in will run every 15 minutes via cron."
+echo "[INFO] Installation complete. Check-in will run every 15 minutes via cron using the venv."
