@@ -2,6 +2,7 @@
 set -e
 umask 027
 
+REPO="mccannical/ticket-printer" # define early so warnings can interpolate
 # Detect being executed via sudo with process substitution which loses /dev/fd handle
 if [[ "$0" =~ ^/dev/fd/ && -n "${SUDO_USER:-}" ]]; then
 	echo "[WARN] Script appears to be run via process substitution with sudo (e.g. sudo bash <(curl ...)). This can fail on some systems." >&2
@@ -10,7 +11,6 @@ if [[ "$0" =~ ^/dev/fd/ && -n "${SUDO_USER:-}" ]]; then
 fi
 
 # --- CONFIG ---
-REPO="mccannical/ticket-printer"
 # Allow override via env; default system-wide path
 INSTALL_DIR="${INSTALL_DIR:-/opt/ticket-printer}"
 PYTHON_BIN="python3"
@@ -65,18 +65,6 @@ if [ -f "$CONFIG_FILE" ]; then
 	[ -n "$VERSION" ] && VERSION="$VERSION"
 fi
 
-# Persist config (idempotent; updates if changed)
-mkdir -p "$INSTALL_DIR" 2>/dev/null || true
-cat >"$CONFIG_FILE.tmp" <<EOF
-CHANNEL=$CHANNEL
-VERSION=$VERSION
-EOF
-if ! cmp -s "$CONFIG_FILE.tmp" "$CONFIG_FILE" 2>/dev/null; then
-	mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
-else
-	rm "$CONFIG_FILE.tmp"
-fi
-
 echo "[INFO] Channel=$CHANNEL Version=${VERSION:-<auto>}"
 
 # --- FUNCTIONS ---
@@ -124,9 +112,20 @@ function validate_origin() {
 }
 
 function tighten_permissions() {
-	if [ -d "$INSTALL_DIR" ]; then
-		chmod 750 "$INSTALL_DIR" 2>/dev/null || true
-		find "$INSTALL_DIR" -maxdepth 1 -type f -name '*.sh' -exec chmod 750 {} + 2>/dev/null || true
+	# Basic hardening; tolerate errors
+	[ -d "$INSTALL_DIR" ] && chmod 750 "$INSTALL_DIR" 2>/dev/null || true
+}
+
+function persist_config() {
+	mkdir -p "$INSTALL_DIR" 2>/dev/null || true
+	cat >"$CONFIG_FILE.tmp" <<EOF
+CHANNEL=$CHANNEL
+VERSION=$VERSION
+EOF
+	if ! cmp -s "$CONFIG_FILE.tmp" "$CONFIG_FILE" 2>/dev/null; then
+		mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+	else
+		rm "$CONFIG_FILE.tmp"
 	fi
 }
 
@@ -168,6 +167,7 @@ function install_or_update_repo() {
 		fi
 		validate_origin
 		tighten_permissions
+		persist_config
 		cd - >/dev/null || true
 	else
 		echo "[INFO] Updating existing repo at $INSTALL_DIR..."
@@ -185,6 +185,7 @@ function install_or_update_repo() {
 		fi
 		validate_origin
 		tighten_permissions
+		persist_config
 		cd - >/dev/null || true
 	fi
 }
