@@ -1,21 +1,112 @@
-# Quick Install
+## Quick Install (Stable Channel)
 
-To install and set up the ticket-printer service, run:
+Installs or upgrades to the latest released version (GitHub Releases):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
 ```
 
-# Ticket Printer Service
+## Alternate Channels & Pinning
 
-A Python service for Raspberry Pi that connects to a backend, registers itself, receives print jobs via message queue, and prints to a thermal printer.
+Channel / version selection is persisted in `~/.ticket-printer/.install_env`.
 
-## Structure
-- `src/` - Source code
-- `config/` - Configuration files
-- `logs/` - Log files
+1. Track development branch (main):
+```sh
+CHANNEL=main curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
+```
 
-## Features
-- Registers with backend and sends environment info every 15 minutes
-- Subscribes to a message queue (MQTT/AMQP) for print jobs
-- Prints to a thermal printer
+2. Pin a specific release (no auto-upgrades unless you change VERSION):
+```sh
+VERSION=v1.0.1 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
+```
+
+3. Switch an existing install:
+```sh
+cd ~/ticket-printer
+CHANNEL=stable ./install.sh          # move to stable
+CHANNEL=main ./install.sh            # move to main
+VERSION=v1.0.1 ./install.sh          # pin exact version
+```
+
+## What the Installer Does
+- Clones (or updates) repo under `~/ticket-printer`
+- Selects branch/tag based on CHANNEL or VERSION
+- Creates/updates Python virtualenv `.venv`
+- Installs dependencies from `requirements.txt`
+- Prints a diagnostic test ticket
+- Installs cron jobs:
+	- Hourly self-update (respecting channel/pin)
+	- `@reboot` diagnostic ticket
+	- Daily 06:00 chores placeholder
+
+Remove cron jobs by deleting lines containing `# ticket-printer managed`:
+```sh
+crontab -l | grep -v 'ticket-printer managed' | crontab -
+```
+
+## Runtime
+Service entrypoint:
+```sh
+PYTHONPATH=~/ticket-printer ~/ticket-printer/.venv/bin/python -m src.main
+```
+
+## Project Overview
+Python service that identifies a printer instance, gathers environment and printer status, and checks in to a backend endpoint. (Future roadmap: queue consumption & print job handling.)
+
+### Structure
+- `src/` – Source code
+- `config/` – Generated/persistent data (printer UUID)
+- `logs/` – Placeholder for future log routing
+
+### Current Features
+- Persistent UUID (stored in `config/printer_uuid.txt`)
+- Environment & printer status gathering (lpstat, external IP)
+- Payload schema validation (jsonschema)
+- Resilient network posting with retries
+- Release awareness & update advice
+- Startup test ticket
+- Channel/version aware installer & auto-update
+
+### Planned / Potential
+- Print job queue integration (MQTT/AMQP)
+- Structured JSON logging & log shipping
+- Health endpoint / watchdog integration
+- Graceful shutdown & systemd unit template
+
+## Development
+
+Create environment & run tests:
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+mise run test
+```
+
+Format & lint:
+```sh
+mise run format
+mise run lint
+```
+
+Cut new patch release (after tests pass):
+```sh
+mise run bump-release
+```
+
+## Support & Troubleshooting
+View current version:
+```sh
+git -C ~/ticket-printer describe --tags --abbrev=0 || echo 'on main'
+```
+Re-run installer with explicit channel:
+```sh
+CHANNEL=stable ~/ticket-printer/install.sh
+```
+Check logs (journalctl example if wrapped as a service):
+```sh
+journalctl -u ticket-printer.service -f
+```
+
+## License
+MIT (add LICENSE file if distributing).
