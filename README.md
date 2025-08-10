@@ -77,6 +77,7 @@ Python service that identifies a printer instance, gathers environment and print
 - UUID stored in `config/` with 600 file perms (attempted) and directory 700; override with `TICKET_PRINTER_CONFIG_DIR=/var/lib/ticket-printer`.
 - Systemd unit template under `systemd/ticket-printer.service` includes restrictive sandboxing directives.
 - Installer enforces ownership/user guidance and warns on unsafe invocation patterns.
+- Installer sets umask 027, validates remote origin URL, tightens directory/script permissions (750), and separates runtime vs dev dependency files.
 
 ## Development
 

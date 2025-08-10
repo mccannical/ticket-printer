@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+umask 027
 
 # Detect being executed via sudo with process substitution which loses /dev/fd handle
 if [[ "$0" =~ ^/dev/fd/ && -n "${SUDO_USER:-}" ]]; then
@@ -86,6 +87,27 @@ function get_latest_release_tag() {
 	printf '%s' "$latest"
 }
 
+function validate_origin() {
+	local origin
+	origin=$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || echo "")
+	if [ -n "$origin" ]; then
+		case "$origin" in
+			*"github.com/${REPO}.git"|*"github.com/${REPO}") ;; # ok
+			*)
+				echo "[ERROR] Remote origin mismatch ($origin) expected https://github.com/${REPO}. Possible tampering." >&2
+				exit 1
+				;;
+		esac
+	fi
+}
+
+function tighten_permissions() {
+	if [ -d "$INSTALL_DIR" ]; then
+		chmod 750 "$INSTALL_DIR" 2>/dev/null || true
+		find "$INSTALL_DIR" -maxdepth 1 -type f -name '*.sh' -exec chmod 750 {} + 2>/dev/null || true
+	fi
+}
+
 function install_or_update_repo() {
 	if [ ! -d "$INSTALL_DIR/.git" ]; then
 		# Directory exists but is not a git repo
@@ -122,6 +144,8 @@ function install_or_update_repo() {
 		else
 			echo "[INFO] Staying on main branch (channel=main)"
 		fi
+		validate_origin
+		tighten_permissions
 		cd - >/dev/null || true
 	else
 		echo "[INFO] Updating existing repo at $INSTALL_DIR..."
@@ -137,6 +161,8 @@ function install_or_update_repo() {
 			git checkout main 2>/dev/null || true
 			git pull --ff-only || git pull || true
 		fi
+		validate_origin
+		tighten_permissions
 		cd - >/dev/null || true
 	fi
 }
@@ -169,7 +195,11 @@ function setup_venv() {
 	fi
 	source "$VENV_DIR/bin/activate"
 	pip install --upgrade pip
-	pip install -r requirements.txt
+	if [ -f requirements.runtime.txt ]; then
+		pip install -r requirements.runtime.txt
+	else
+		pip install -r requirements.txt
+	fi
 	deactivate
 	cd -
 }
@@ -206,7 +236,11 @@ function check_for_update_and_print() {
 	fi
 
 	# Always (re)install dependencies after potential switch
-	pip install -r requirements.txt >/dev/null 2>&1 || pip install -r requirements.txt
+	if [ -f requirements.runtime.txt ]; then
+		pip install -r requirements.runtime.txt >/dev/null 2>&1 || pip install -r requirements.runtime.txt
+	else
+		pip install -r requirements.txt >/dev/null 2>&1 || pip install -r requirements.txt
+	fi
 	PYTHONPATH="$INSTALL_DIR" $PYTHON_BIN -c "from src.checkin import print_test_ticket, get_printer_uuid, get_local_ip; from src.env_info import gather_env_info; import json; printer_uuid=get_printer_uuid(); local_ip=get_local_ip(); env_info=gather_env_info(); external_ip=env_info.get('external_ip','Unknown'); last_checkin=env_info.get('last_checkin','Unknown'); print_test_ticket(printer_uuid, local_ip, external_ip, last_checkin, env_info)"
 
 	deactivate
@@ -233,6 +267,7 @@ function print_chores_message() {
 install_or_update_repo
 ensure_printer_user_access
 setup_venv
+tighten_permissions
 check_for_update_and_print
 
 # --- CRON SETUP ---

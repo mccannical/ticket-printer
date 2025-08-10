@@ -5,6 +5,11 @@
 - Ops: add systemd service unit template with hardening directives
 - Docs: add security & hardening section
 
+### v1.0.10
+- Installer: umask 027, origin remote validation, permission tightening (750), runtime-only dependency install path
+- Dependencies: split runtime vs dev (requirements.runtime.txt / requirements.dev.txt)
+- Docs: expanded hardening notes
+
 ### v1.0.8
 - Installer: detect sudo process substitution misuse and warn
 - Docs: recommend pipe form over process substitution; update pin examples to v1.0.8
