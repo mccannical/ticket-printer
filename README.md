@@ -17,7 +17,7 @@ CHANNEL=main curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-prin
 
 2. Pin a specific release (no auto-upgrades unless you change VERSION):
 ```sh
-VERSION=v1.0.5 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
+VERSION=v1.0.7 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
 ```
 
 3. Switch an existing install:
@@ -25,7 +25,7 @@ VERSION=v1.0.5 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-pr
 cd ~/ticket-printer
 CHANNEL=stable ./install.sh          # move to stable
 CHANNEL=main ./install.sh            # move to main
-VERSION=v1.0.5 ./install.sh          # pin exact version
+VERSION=v1.0.7 ./install.sh          # pin exact version
 ```
 
 ## What the Installer Does
