@@ -1,5 +1,9 @@
 ## Changelog
 
+### v1.0.12
+- Fix: defer .install_env creation until after clone/update to avoid false non-empty directory errors
+- Fix: robust relative import in src/main.py preventing ModuleNotFoundError when run as module
+
 ### v1.0.11
 - Installer: print relevant CHANGELOG sections on install/update (skippable via SKIP_CHANGELOG=1)
 - Hardening: cumulative improvements from v1.0.9 & v1.0.10 (see entries below)
