@@ -4,28 +4,96 @@ set -e
 # --- CONFIG ---
 REPO="mccannical/ticket-printer"
 INSTALL_DIR="$HOME/ticket-printer"
-BRANCH_OR_TAG="main"  # Set to desired branch; script can optionally pin to latest tag unless FORCE_MAIN=1
 PYTHON_BIN="python3"
 VENV_DIR=".venv"
 CRON_MARKER="# ticket-printer managed"
 
+# Release selection strategy:
+# CHANNEL=stable (default) -> track latest GitHub release tag (vX.Y.Z)
+# CHANNEL=main            -> track main branch (development)
+# VERSION=<tag>           -> pin to specific tag (overrides CHANNEL)
+# Legacy FORCE_MAIN=1 maps to CHANNEL=main
+
+CHANNEL_ENV=${CHANNEL:-}
+if [ "${FORCE_MAIN:-0}" = "1" ] && [ -z "$CHANNEL_ENV" ]; then
+	CHANNEL_ENV="main"
+fi
+CHANNEL=${CHANNEL_ENV:-stable}
+VERSION=${VERSION:-}
+
+CONFIG_FILE="$INSTALL_DIR/.install_env"
+
+# Load persisted config if exists (unless overriding with explicit env vars this run)
+if [ -f "$CONFIG_FILE" ]; then
+	# shellcheck disable=SC1090
+	. "$CONFIG_FILE"
+	# Allow explicit env overrides to win
+	[ -n "$CHANNEL_ENV" ] && CHANNEL="$CHANNEL_ENV"
+	[ -n "$VERSION" ] && VERSION="$VERSION"
+fi
+
+# Persist config (idempotent; updates if changed)
+mkdir -p "$INSTALL_DIR" 2>/dev/null || true
+cat >"$CONFIG_FILE.tmp" <<EOF
+CHANNEL=$CHANNEL
+VERSION=$VERSION
+EOF
+if ! cmp -s "$CONFIG_FILE.tmp" "$CONFIG_FILE" 2>/dev/null; then
+	mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+else
+	rm "$CONFIG_FILE.tmp"
+fi
+
+echo "[INFO] Channel=$CHANNEL Version=${VERSION:-<auto>}"
+
 # --- FUNCTIONS ---
+function get_latest_release_tag() {
+	# Returns latest release tag via GitHub API or empty string
+	local latest
+	latest=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep -m1 '"tag_name"' | cut -d '"' -f4 || true)
+	printf '%s' "$latest"
+}
+
 function install_or_update_repo() {
 	if [ ! -d "$INSTALL_DIR/.git" ]; then
-		echo "[INFO] Cloning repo..."
-		git clone --branch "$BRANCH_OR_TAG" "https://github.com/$REPO.git" "$INSTALL_DIR"
-	else
-		echo "[INFO] Pulling latest code..."
+		echo "[INFO] Cloning repo (initial install)..."
+		git clone "https://github.com/$REPO.git" "$INSTALL_DIR"
 		cd "$INSTALL_DIR"
-		git fetch --tags
-		git checkout "$BRANCH_OR_TAG"
-		git pull
-		# If currently detached (possible from earlier runs), ensure we are on main before proceeding
-		if ! git symbolic-ref -q HEAD >/dev/null 2>&1; then
-			echo "[WARN] Detached HEAD detected; checking out $BRANCH_OR_TAG"
-			git checkout "$BRANCH_OR_TAG"
+		git fetch --tags --quiet || true
+		if [ -n "$VERSION" ]; then
+			if git rev-parse "$VERSION" >/dev/null 2>&1; then
+				echo "[INFO] Checking out specified version $VERSION"
+				git checkout "$VERSION"
+			else
+				echo "[ERROR] Specified VERSION $VERSION not found; staying on main" >&2
+			fi
+		elif [ "$CHANNEL" = "stable" ]; then
+			LATEST_TAG=$(get_latest_release_tag)
+			if [ -n "$LATEST_TAG" ] && git rev-parse "$LATEST_TAG" >/dev/null 2>&1; then
+				echo "[INFO] Checking out latest release $LATEST_TAG"
+				git checkout "$LATEST_TAG"
+			else
+				echo "[WARN] Could not resolve latest release tag; staying on main"
+			fi
+		else
+			echo "[INFO] Staying on main branch (channel=main)"
 		fi
-		cd -
+		cd - >/dev/null
+	else
+		echo "[INFO] Updating existing repo..."
+		cd "$INSTALL_DIR"
+		git fetch --tags --quiet || true
+		if [ -n "$VERSION" ]; then
+			if git rev-parse "$VERSION" >/dev/null 2>&1; then
+				git checkout "$VERSION" 2>/dev/null || true
+			else
+				echo "[ERROR] Desired VERSION $VERSION not found; leaving current HEAD" >&2
+			fi
+		elif [ "$CHANNEL" = "main" ]; then
+			git checkout main 2>/dev/null || true
+			git pull --ff-only || git pull || true
+		fi
+		cd - >/dev/null
 	fi
 }
 
@@ -45,47 +113,39 @@ function check_for_update_and_print() {
 	cd "$INSTALL_DIR"
 	source "$VENV_DIR/bin/activate"
 
-	if [ "${FORCE_MAIN:-0}" = "1" ]; then
-		echo "[INFO] FORCE_MAIN=1 set; skipping tag switch. Staying on $BRANCH_OR_TAG."
-		deactivate
-		cd -
-		return 0
-	fi
-
-	# Determine highest semantic version tag locally (fetch first)
-	git fetch --tags >/dev/null 2>&1 || true
-	LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -n1)
-	CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse HEAD 2>/dev/null || echo "unknown")
-
-	CURR_VER=${CURRENT_TAG#v}
-	LATEST_VER=${LATEST_TAG#v}
-
-	# Helper: is semantic version
-	if [[ $CURR_VER =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ $LATEST_VER =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		# Compare versions; if latest > current then upgrade
-		HIGHEST=$(printf '%s\n%s' "$CURR_VER" "$LATEST_VER" | sort -V | tail -n1)
-		if [ "$HIGHEST" = "$LATEST_VER" ] && [ "$CURR_VER" != "$LATEST_VER" ]; then
-			echo "[INFO] Newer tag available: v$LATEST_VER (current v$CURR_VER). Upgrading..."
-			git checkout "v$LATEST_VER"
-			pip install -r requirements.txt
-			PYTHONPATH="$INSTALL_DIR" $PYTHON_BIN -c "from src.checkin import print_test_ticket, get_printer_uuid, get_local_ip; from src.env_info import gather_env_info; import json; printer_uuid=get_printer_uuid(); local_ip=get_local_ip(); env_info=gather_env_info(); external_ip=env_info.get('external_ip','Unknown'); last_checkin=env_info.get('last_checkin','Unknown'); print_test_ticket(printer_uuid, local_ip, external_ip, last_checkin, env_info)"
+	if [ -n "$VERSION" ]; then
+		# Pin to explicit version; nothing to auto-update unless version changed externally
+		TARGET="$VERSION"
+		if git rev-parse "$TARGET" >/dev/null 2>&1; then
+			if ! git describe --tags --exact-match >/dev/null 2>&1 || [ "$(git describe --tags --exact-match 2>/dev/null)" != "$TARGET" ]; then
+				echo "[INFO] Switching to pinned version $TARGET"
+				git checkout "$TARGET" || echo "[ERROR] Could not checkout $TARGET" >&2
+			fi
 		else
-			echo "[INFO] Current version ($CURRENT_TAG) is up-to-date; no upgrade performed."
+			echo "[ERROR] VERSION $TARGET not found; skipping switch" >&2
+		fi
+	elif [ "$CHANNEL" = "stable" ]; then
+		REMOTE_LATEST=$(get_latest_release_tag)
+		LOCAL_CURRENT=$(git describe --tags --abbrev=0 2>/dev/null || echo "main")
+		if [ -n "$REMOTE_LATEST" ] && [ "$REMOTE_LATEST" != "$LOCAL_CURRENT" ]; then
+			echo "[INFO] Upgrading from $LOCAL_CURRENT to $REMOTE_LATEST"
+			git fetch --tags --quiet || true
+			git checkout "$REMOTE_LATEST" || echo "[ERROR] Failed to checkout $REMOTE_LATEST" >&2
+		else
+			echo "[INFO] Already on latest stable ($LOCAL_CURRENT)"
 		fi
 	else
-		# If current is not semver (e.g., on main commit), upgrade only if we have a tag and not already on it
-		if [ -n "$LATEST_TAG" ] && [ "$CURRENT_TAG" != "$LATEST_TAG" ]; then
-			echo "[INFO] Switching to latest tag $LATEST_TAG from $CURRENT_TAG..."
-			git checkout "$LATEST_TAG"
-			pip install -r requirements.txt
-			PYTHONPATH="$INSTALL_DIR" $PYTHON_BIN -c "from src.checkin import print_test_ticket, get_printer_uuid, get_local_ip; from src.env_info import gather_env_info; import json; printer_uuid=get_printer_uuid(); local_ip=get_local_ip(); env_info=gather_env_info(); external_ip=env_info.get('external_ip','Unknown'); last_checkin=env_info.get('last_checkin','Unknown'); print_test_ticket(printer_uuid, local_ip, external_ip, last_checkin, env_info)"
-		else
-			echo "[INFO] No semantic version tags found or already on latest commit."
-		fi
+		# main channel
+		git checkout main 2>/dev/null || true
+		git pull --ff-only || git pull || true
 	fi
 
+	# Always (re)install dependencies after potential switch
+	pip install -r requirements.txt >/dev/null 2>&1 || pip install -r requirements.txt
+	PYTHONPATH="$INSTALL_DIR" $PYTHON_BIN -c "from src.checkin import print_test_ticket, get_printer_uuid, get_local_ip; from src.env_info import gather_env_info; import json; printer_uuid=get_printer_uuid(); local_ip=get_local_ip(); env_info=gather_env_info(); external_ip=env_info.get('external_ip','Unknown'); last_checkin=env_info.get('last_checkin','Unknown'); print_test_ticket(printer_uuid, local_ip, external_ip, last_checkin, env_info)"
+
 	deactivate
-	cd -
+	cd - >/dev/null
 }
 
 function print_test_ticket_on_boot() {
