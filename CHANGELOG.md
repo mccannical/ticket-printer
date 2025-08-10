@@ -1,5 +1,10 @@
 ## Changelog
 
+### v1.0.9
+- Security: restrict config dir & UUID file permissions; support TICKET_PRINTER_CONFIG_DIR
+- Ops: add systemd service unit template with hardening directives
+- Docs: add security & hardening section
+
 ### v1.0.8
 - Installer: detect sudo process substitution misuse and warn
 - Docs: recommend pipe form over process substitution; update pin examples to v1.0.8

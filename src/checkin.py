@@ -18,6 +18,7 @@ import socket
 import sys
 import time
 import uuid
+import stat
 from typing import Any, Dict, Optional
 
 import requests
@@ -25,7 +26,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 try:  # Optional journald integration
-    from systemd.journal import JournaldLogHandler
+    from systemd.journal import JournaldLogHandler  # type: ignore
 
     SYSTEMD_AVAILABLE = True
 except ImportError:  # pragma: no cover - systemd rarely available in test
@@ -191,25 +192,55 @@ def get_current_git_tag() -> Optional[str]:
 
 
 def get_printer_uuid() -> str:
-    """Return persistent UUID1 (create on first run)."""
-    config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config")
-    uuid_file = os.path.join(config_dir, "printer_uuid.txt")
-    if not os.path.exists(config_dir):
-        os.makedirs(config_dir, exist_ok=True)
+    """Return persistent UUID1 (create on first run) stored with restrictive permissions.
+
+    Config directory can be overridden with env var TICKET_PRINTER_CONFIG_DIR.
+    Directory permission: 700, file permission: 600 (best effort on non-Windows).
+    """
+    base_dir = os.environ.get(
+        "TICKET_PRINTER_CONFIG_DIR",
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "config"),
+    )
+    uuid_file = os.path.join(base_dir, "printer_uuid.txt")
+    try:
+        if not os.path.exists(base_dir):
+            os.makedirs(base_dir, exist_ok=True)
+            try:
+                os.chmod(base_dir, 0o700)
+            except Exception:  # pragma: no cover - permission errors ignored
+                pass
+        else:
+            # Tighten existing dir if too open (> 755)
+            try:
+                mode = stat.S_IMODE(os.stat(base_dir).st_mode)
+                if mode & 0o077:
+                    os.chmod(base_dir, 0o700)
+            except Exception:
+                pass
+    except Exception:
+        logging.getLogger(__name__).warning("Failed to ensure config directory at %s", base_dir)
+
     if os.path.exists(uuid_file):
         try:
             with open(uuid_file, "r", encoding="utf-8") as f:
-                value = f.read().strip()
-                if value:
-                    return value
-        except Exception:  # pragma: no cover - unlikely
+                existing = f.read().strip()
+                if existing:
+                    return existing
+        except Exception:  # pragma: no cover
             pass
+
     new_uuid = str(uuid.uuid1())
     try:
         with open(uuid_file, "w", encoding="utf-8") as f:
             f.write(new_uuid)
+        try:
+            os.chmod(uuid_file, 0o600)
+        except Exception:  # pragma: no cover
+            pass
     except Exception:  # pragma: no cover
-        logging.getLogger(__name__).warning("Failed to persist UUID; using ephemeral value")
+        logging.getLogger(__name__).warning(
+            "Failed to persist UUID at %s; using ephemeral value", uuid_file
+        )
     return new_uuid
 
 

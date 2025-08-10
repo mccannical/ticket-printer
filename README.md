@@ -73,6 +73,11 @@ Python service that identifies a printer instance, gathers environment and print
 - Health endpoint / watchdog integration
 - Graceful shutdown & systemd unit template
 
+### Security & Hardening
+- UUID stored in `config/` with 600 file perms (attempted) and directory 700; override with `TICKET_PRINTER_CONFIG_DIR=/var/lib/ticket-printer`.
+- Systemd unit template under `systemd/ticket-printer.service` includes restrictive sandboxing directives.
+- Installer enforces ownership/user guidance and warns on unsafe invocation patterns.
+
 ## Development
 
 Create environment & run tests:

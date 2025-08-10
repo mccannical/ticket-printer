@@ -1,0 +1,38 @@
+## Systemd service unit for ticket-printer (template)
+[Unit]
+Description=Ticket Printer Check-in Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=printer
+Group=printer
+WorkingDirectory=/opt/ticket-printer
+Environment=PYTHONPATH=/opt/ticket-printer
+ExecStart=/opt/ticket-printer/.venv/bin/python -m src.main
+Restart=on-failure
+RestartSec=5
+# Security hardening directives
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+SystemCallFilter=@system-service
+ReadWritePaths=/opt/ticket-printer
+RuntimeDirectory=ticket-printer
+RuntimeDirectoryMode=0750
+LogsDirectory=ticket-printer
+LogsDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target
