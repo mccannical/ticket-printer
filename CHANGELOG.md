@@ -1,5 +1,8 @@
 ## Changelog
 
+### v1.0.7
+- Installer: early permission checks & clearer FORCE_REPLACE usage hint
+
 ### v1.0.6
 - Installer: ensure printer user ownership of install directory (PRINTER_USER, recursive chown when run as root)
 
