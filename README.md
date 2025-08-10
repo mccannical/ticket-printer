@@ -17,7 +17,7 @@ CHANNEL=main curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-prin
 
 2. Pin a specific release (no auto-upgrades unless you change VERSION):
 ```sh
-VERSION=v1.0.2 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
+VERSION=v1.0.5 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
 ```
 
 3. Switch an existing install:
@@ -25,7 +25,7 @@ VERSION=v1.0.2 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-pr
 cd ~/ticket-printer
 CHANNEL=stable ./install.sh          # move to stable
 CHANNEL=main ./install.sh            # move to main
-VERSION=v1.0.2 ./install.sh          # pin exact version
+VERSION=v1.0.5 ./install.sh          # pin exact version
 ```
 
 ## What the Installer Does
@@ -113,6 +113,12 @@ TICKET_PRINTER_VERSION=1.2.3 python -m src.main
 ```
 
 User-Agent automatically reflects the current git tag (without a leading `v`) or the short commit hash if untaged.
+```
+Ensure system user access (installer will chown recursively if run as root and user exists):
+```sh
+sudo PRINTER_USER=printer bash install.sh
+# or manually after install:
+sudo chown -R printer:printer /opt/ticket-printer
 ```
 Check logs (journalctl example if wrapped as a service):
 ```sh

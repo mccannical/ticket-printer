@@ -8,6 +8,7 @@ INSTALL_DIR="${INSTALL_DIR:-/opt/ticket-printer}"
 PYTHON_BIN="python3"
 VENV_DIR=".venv"
 CRON_MARKER="# ticket-printer managed"
+PRINTER_USER="${PRINTER_USER:-printer}"  # Optional system user expected to run the service
 
 # Release selection strategy:
 # CHANNEL=stable (default) -> track latest GitHub release tag (vX.Y.Z)
@@ -109,6 +110,27 @@ function install_or_update_repo() {
 	fi
 }
 
+function ensure_printer_user_access() {
+	# If a PRINTER_USER exists on the system and we have privileges, ensure it owns the install dir.
+	if id -u "$PRINTER_USER" >/dev/null 2>&1; then
+		if [ "$(id -u)" -eq 0 ]; then
+			# Only chown if not already owned by target user to avoid unnecessary churn
+			current_owner=$(stat -c '%U' "$INSTALL_DIR" 2>/dev/null || stat -f '%Su' "$INSTALL_DIR" 2>/dev/null || echo "")
+			if [ "$current_owner" != "$PRINTER_USER" ]; then
+				echo "[INFO] Setting ownership of $INSTALL_DIR to $PRINTER_USER (recursive)"
+				chown -R "$PRINTER_USER":"$PRINTER_USER" "$INSTALL_DIR" || echo "[WARN] Failed to chown $INSTALL_DIR" >&2
+			fi
+		else
+			# Not root; check write access for printer user by group membership suggestion
+			if [ ! -w "$INSTALL_DIR" ]; then
+				echo "[WARN] Not root; cannot adjust ownership. To allow user '$PRINTER_USER' access, run: sudo chown -R $PRINTER_USER:$PRINTER_USER $INSTALL_DIR" >&2
+			fi
+		fi
+	else
+		echo "[INFO] PRINTER_USER '$PRINTER_USER' not present; skipping ownership adjustment (set PRINTER_USER= or create user to enable)."
+	fi
+}
+
 function setup_venv() {
 	cd "$INSTALL_DIR"
 	if [ ! -d "$VENV_DIR" ]; then
@@ -178,6 +200,7 @@ function print_chores_message() {
 
 # --- MAIN LOGIC ---
 install_or_update_repo
+ensure_printer_user_access
 setup_venv
 check_for_update_and_print
 
