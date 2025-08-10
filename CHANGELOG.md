@@ -1,5 +1,8 @@
 ## Changelog
 
+### v1.0.13
+- Misc: minor adjustments (post v1.0.12)
+
 ### v1.0.12
 - Fix: defer .install_env creation until after clone/update to avoid false non-empty directory errors
 - Fix: robust relative import in src/main.py preventing ModuleNotFoundError when run as module
