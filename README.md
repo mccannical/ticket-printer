@@ -1,6 +1,6 @@
 ## Quick Install (Stable Channel)
 
-Installs or upgrades to the latest released version (GitHub Releases):
+Installs or upgrades to the latest released version (GitHub Releases). Default install path is `/opt/ticket-printer` (override with `INSTALL_DIR=`):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
@@ -17,7 +17,7 @@ CHANNEL=main curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-prin
 
 2. Pin a specific release (no auto-upgrades unless you change VERSION):
 ```sh
-VERSION=v1.0.1 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
+VERSION=v1.0.2 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
 ```
 
 3. Switch an existing install:
@@ -25,11 +25,11 @@ VERSION=v1.0.1 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-pr
 cd ~/ticket-printer
 CHANNEL=stable ./install.sh          # move to stable
 CHANNEL=main ./install.sh            # move to main
-VERSION=v1.0.1 ./install.sh          # pin exact version
+VERSION=v1.0.2 ./install.sh          # pin exact version
 ```
 
 ## What the Installer Does
-- Clones (or updates) repo under `~/ticket-printer`
+- Clones (or updates) repo under `/opt/ticket-printer` (or custom `INSTALL_DIR`)
 - Selects branch/tag based on CHANNEL or VERSION
 - Creates/updates Python virtualenv `.venv`
 - Installs dependencies from `requirements.txt`
@@ -45,9 +45,9 @@ crontab -l | grep -v 'ticket-printer managed' | crontab -
 ```
 
 ## Runtime
-Service entrypoint:
+Service entrypoint (example if installed to /opt):
 ```sh
-PYTHONPATH=~/ticket-printer ~/ticket-printer/.venv/bin/python -m src.main
+PYTHONPATH=/opt/ticket-printer /opt/ticket-printer/.venv/bin/python -m src.main
 ```
 
 ## Project Overview
@@ -95,13 +95,24 @@ mise run bump-release
 ```
 
 ## Support & Troubleshooting
-View current version:
+View current version (git tag):
 ```sh
 git -C ~/ticket-printer describe --tags --abbrev=0 || echo 'on main'
 ```
 Re-run installer with explicit channel:
 ```sh
-CHANNEL=stable ~/ticket-printer/install.sh
+CHANNEL=stable /opt/ticket-printer/install.sh
+Force reinstall into /opt overwriting existing directory:
+```sh
+sudo FORCE_REPLACE=1 bash <(curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh)
+```
+
+Override detected version/user-agent (packaging scenarios):
+```sh
+TICKET_PRINTER_VERSION=1.2.3 python -m src.main
+```
+
+User-Agent automatically reflects the current git tag (without a leading `v`) or the short commit hash if untaged.
 ```
 Check logs (journalctl example if wrapped as a service):
 ```sh
