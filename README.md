@@ -1,3 +1,11 @@
+# Quick Install
+
+To install and set up the ticket-printer service, run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
+```
+
 # Ticket Printer Service
 
 A Python service for Raspberry Pi that connects to a backend, registers itself, receives print jobs via message queue, and prints to a thermal printer.
