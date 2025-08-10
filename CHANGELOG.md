@@ -1,5 +1,8 @@
 ## Changelog
 
+### v1.0.6
+- Installer: ensure printer user ownership of install directory (PRINTER_USER, recursive chown when run as root)
+
 ### v1.0.5
 - CI: add contents: write permission and explicit token usage for release workflow (fix 403 on tag push)
 - Meta: release verification tag; no functional code changes
