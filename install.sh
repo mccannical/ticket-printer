@@ -46,7 +46,7 @@ function check_for_update_and_print() {
 		git fetch --tags
 		git checkout "$LATEST_TAG"
 		pip install -r requirements.txt
-		$PYTHON_BIN -c "from src.checkin import print_test_ticket, get_printer_uuid, get_local_ip; from src.env_info import gather_env_info; import json; printer_uuid=get_printer_uuid(); local_ip=get_local_ip(); env_info=gather_env_info(); external_ip=env_info.get('external_ip','Unknown'); last_checkin=env_info.get('last_checkin','Unknown'); print_test_ticket(printer_uuid, local_ip, external_ip, last_checkin, env_info)"
+		PYTHONPATH="$INSTALL_DIR" $PYTHON_BIN -c "from src.checkin import print_test_ticket, get_printer_uuid, get_local_ip; from src.env_info import gather_env_info; import json; printer_uuid=get_printer_uuid(); local_ip=get_local_ip(); env_info=gather_env_info(); external_ip=env_info.get('external_ip','Unknown'); last_checkin=env_info.get('last_checkin','Unknown'); print_test_ticket(printer_uuid, local_ip, external_ip, last_checkin, env_info)"
 	fi
 	deactivate
 	cd -
@@ -55,7 +55,7 @@ function check_for_update_and_print() {
 function print_test_ticket_on_boot() {
 	cd "$INSTALL_DIR"
 	source "$VENV_DIR/bin/activate"
-	$PYTHON_BIN -c "from src.checkin import print_test_ticket, get_printer_uuid, get_local_ip; from src.env_info import gather_env_info; import json; printer_uuid=get_printer_uuid(); local_ip=get_local_ip(); env_info=gather_env_info(); external_ip=env_info.get('external_ip','Unknown'); last_checkin=env_info.get('last_checkin','Unknown'); print_test_ticket(printer_uuid, local_ip, external_ip, last_checkin, env_info)"
+	PYTHONPATH="$INSTALL_DIR" $PYTHON_BIN -c "from src.checkin import print_test_ticket, get_printer_uuid, get_local_ip; from src.env_info import gather_env_info; import json; printer_uuid=get_printer_uuid(); local_ip=get_local_ip(); env_info=gather_env_info(); external_ip=env_info.get('external_ip','Unknown'); last_checkin=env_info.get('last_checkin','Unknown'); print_test_ticket(printer_uuid, local_ip, external_ip, last_checkin, env_info)"
 	deactivate
 	cd -
 }
@@ -63,7 +63,7 @@ function print_test_ticket_on_boot() {
 function print_chores_message() {
 	cd "$INSTALL_DIR"
 	source "$VENV_DIR/bin/activate"
-	$PYTHON_BIN -c "print('chores today:')"
+	PYTHONPATH="$INSTALL_DIR" $PYTHON_BIN -c "print('chores today:')"
 	deactivate
 	cd -
 }
@@ -98,4 +98,4 @@ fi
 # --- NORMAL RUN ---
 cd "$INSTALL_DIR"
 source "$VENV_DIR/bin/activate"
-$PYTHON_BIN -m src.main
+PYTHONPATH="$INSTALL_DIR" $PYTHON_BIN -m src.main

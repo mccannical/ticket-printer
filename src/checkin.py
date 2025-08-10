@@ -31,7 +31,13 @@ try:  # Optional journald integration
 except ImportError:  # pragma: no cover - systemd rarely available in test
     SYSTEMD_AVAILABLE = False
 
-from src.env_info import gather_env_info
+try:
+    from src.env_info import gather_env_info
+except ImportError:  # Fallback if executed from inside src without package context
+    try:  # pragma: no cover - legacy/edge runtime path
+        from env_info import gather_env_info  # type: ignore
+    except ImportError:  # Re-raise original
+        raise
 from src.schema_utils import validate_schema
 
 GITHUB_REPO = "mccannical/ticket-printer"
