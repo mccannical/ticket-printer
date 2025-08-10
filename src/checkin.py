@@ -42,8 +42,48 @@ from src.schema_utils import validate_schema
 
 GITHUB_REPO = "mccannical/ticket-printer"
 BACKEND_URL = "https://checkoff.mccannical.com/printer_checkin"  # Update as needed
-USER_AGENT = "TicketPrinter/1.0.1"
 DEFAULT_TIMEOUT = 5
+
+
+def _compute_version() -> str:
+    """Return current version string derived from git tag or env override.
+
+    Precedence:
+      1. Env var TICKET_PRINTER_VERSION (allows packaging systems to inject)
+      2. Closest git tag (describe --tags --abbrev=0) with leading 'v' stripped
+      3. Commit hash (first 7) prefixed with 'git-'
+      4. Literal 'unknown'
+    """
+    override = os.environ.get("TICKET_PRINTER_VERSION")
+    if override:
+        return override.lstrip("v")
+    try:
+        import subprocess
+
+        tag = subprocess.check_output([
+            "git",
+            "describe",
+            "--tags",
+            "--abbrev=0",
+        ]).decode().strip()
+        if tag:
+            return tag.lstrip("v")
+    except Exception:  # pragma: no cover - git not always present
+        try:
+            import subprocess
+
+            commit = (
+                subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode().strip()
+            )
+            if commit:
+                return f"git-{commit}"
+        except Exception:
+            pass
+    return "unknown"
+
+
+VERSION = _compute_version()
+USER_AGENT = f"TicketPrinter/{VERSION}"
 
 # JSON Schema for outbound payload
 PAYLOAD_SCHEMA = {
