@@ -1,48 +1,47 @@
-import requests
-from datetime import datetime
+"""Environment & printer status utilities."""
 
-
-def get_external_ip():
-    """Get the external IP address using an external service."""
-    try:
-        response = requests.get('https://api.ipify.org?format=json', timeout=5)
-        response.raise_for_status()
-        return response.json().get('ip')
-    except Exception as e:
-        return f"Error: {e}"
-
-def get_last_checkin_time():
-    """Return the current UTC time as last check-in time."""
-    return datetime.utcnow().isoformat() + 'Z'
-
-
+from __future__ import annotations
 
 import subprocess
+from datetime import datetime
+from typing import Dict
 
-def get_printer_status():
-    """
-    Gather information about locally attached printers using lpstat.
-    Returns a string with printer info or error message.
-    """
+import requests
+
+
+def get_external_ip() -> str:
+    """Return external IP address via ipify service (best effort)."""
     try:
-        # Get default printer
+        response = requests.get("https://api.ipify.org?format=json", timeout=5)
+        response.raise_for_status()
+        return str(response.json().get("ip"))
+    except Exception as e:  # pragma: no cover - network variability
+        return f"Error: {e}"
+
+
+def get_last_checkin_time() -> str:
+    """Return current UTC timestamp in RFC3339-like format."""
+    return datetime.utcnow().isoformat() + "Z"
+
+def get_printer_status() -> str:
+    """Return default printer + status lines using lpstat (best effort)."""
+    try:
         default = subprocess.check_output(["lpstat", "-d"]).decode().strip()
     except Exception:
         default = "No default printer found"
     try:
-        # Get all printers and their status
         printers = subprocess.check_output(["lpstat", "-p"]).decode().strip()
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         printers = f"Error: {e}"
     return f"{default}\n{printers}"
 
 
-def gather_env_info():
-    """Gather all environment info to send to backend."""
+def gather_env_info() -> Dict[str, str]:
+    """Gather environment attributes for check-in payload."""
     return {
-        'external_ip': get_external_ip(),
-        'last_checkin': get_last_checkin_time(),
-        'printer_status': get_printer_status(),
+        "external_ip": get_external_ip(),
+        "last_checkin": get_last_checkin_time(),
+        "printer_status": get_printer_status(),
     }
 
 if __name__ == "__main__":

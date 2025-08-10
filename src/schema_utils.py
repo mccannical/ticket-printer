@@ -1,9 +1,10 @@
-
 import jsonschema
 
+
 def validate_schema(payload, schema):
-	"""
-	Validate a payload against a JSON schema. Returns True if valid, raises jsonschema.ValidationError if not.
+	"""Validate payload against JSON schema.
+
+	Returns True if valid; raises jsonschema.ValidationError otherwise.
 	"""
 	jsonschema.validate(instance=payload, schema=schema)
 	return True

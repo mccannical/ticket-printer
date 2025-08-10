@@ -1,10 +1,13 @@
 import os
 import uuid
+
+import pytest
+
 from src import checkin
+
 
 def test_printer_uuid_persistence(tmp_path, monkeypatch):
     # Use a temp config dir
-    config_dir = tmp_path / "config"
     monkeypatch.setattr(checkin, "os", os)
     monkeypatch.setattr(checkin, "__file__", str(tmp_path / "src" / "checkin.py"))
     # First call should create a new UUID
@@ -24,3 +27,10 @@ def test_checkin_payload_structure():
     assert payload["external_ip"] == "1.2.3.4"
     assert payload["status"] == "OK"
     assert isinstance(payload["last_checkin"], int)
+
+
+def test_payload_validation_failure():
+    bad_payload = {"printer_uuid": "x"}  # Missing required fields
+    from jsonschema import ValidationError
+    with pytest.raises(ValidationError):
+        checkin.validate_payload(bad_payload)

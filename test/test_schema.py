@@ -1,5 +1,7 @@
 import pytest
+
 from src.schema_utils import validate_schema  # Placeholder for schema validation
+
 
 def test_schema_validation():
     # Example schema and payload
