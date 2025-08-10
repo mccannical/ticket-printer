@@ -36,7 +36,7 @@ from src.schema_utils import validate_schema
 
 GITHUB_REPO = "mccannical/ticket-printer"
 BACKEND_URL = "https://checkoff.mccannical.com/printer_checkin"  # Update as needed
-USER_AGENT = "TicketPrinter/1.0"
+USER_AGENT = "TicketPrinter/1.0.1"
 DEFAULT_TIMEOUT = 5
 
 # JSON Schema for outbound payload
