@@ -3,7 +3,8 @@ set -e
 
 # --- CONFIG ---
 REPO="mccannical/ticket-printer"
-INSTALL_DIR="$HOME/ticket-printer"
+# Allow override via env; default system-wide path
+INSTALL_DIR="${INSTALL_DIR:-/opt/ticket-printer}"
 PYTHON_BIN="python3"
 VENV_DIR=".venv"
 CRON_MARKER="# ticket-printer managed"
@@ -56,9 +57,20 @@ function get_latest_release_tag() {
 
 function install_or_update_repo() {
 	if [ ! -d "$INSTALL_DIR/.git" ]; then
-		echo "[INFO] Cloning repo (initial install)..."
+		# Directory exists but is not a git repo
+		if [ -d "$INSTALL_DIR" ] && [ "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]; then
+			if [ "${FORCE_REPLACE:-0}" = "1" ]; then
+				echo "[WARN] Removing existing non-git directory $INSTALL_DIR (FORCE_REPLACE=1)"
+				rm -rf "$INSTALL_DIR"
+			else
+				echo "[ERROR] $INSTALL_DIR exists and is not empty. Set FORCE_REPLACE=1 to overwrite, or set INSTALL_DIR to a different path." >&2
+				exit 1
+			fi
+		fi
+		echo "[INFO] Cloning repo (initial install) into $INSTALL_DIR..."
+		mkdir -p "$INSTALL_DIR"
 		git clone "https://github.com/$REPO.git" "$INSTALL_DIR"
-		cd "$INSTALL_DIR"
+		cd "$INSTALL_DIR" || exit 1
 		git fetch --tags --quiet || true
 		if [ -n "$VERSION" ]; then
 			if git rev-parse "$VERSION" >/dev/null 2>&1; then
@@ -78,10 +90,10 @@ function install_or_update_repo() {
 		else
 			echo "[INFO] Staying on main branch (channel=main)"
 		fi
-		cd - >/dev/null
+		cd - >/dev/null || true
 	else
-		echo "[INFO] Updating existing repo..."
-		cd "$INSTALL_DIR"
+		echo "[INFO] Updating existing repo at $INSTALL_DIR..."
+		cd "$INSTALL_DIR" || exit 1
 		git fetch --tags --quiet || true
 		if [ -n "$VERSION" ]; then
 			if git rev-parse "$VERSION" >/dev/null 2>&1; then
@@ -93,7 +105,7 @@ function install_or_update_repo() {
 			git checkout main 2>/dev/null || true
 			git pull --ff-only || git pull || true
 		fi
-		cd - >/dev/null
+		cd - >/dev/null || true
 	fi
 }
 
