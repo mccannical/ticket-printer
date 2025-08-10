@@ -87,6 +87,28 @@ function get_latest_release_tag() {
 	printf '%s' "$latest"
 }
 
+function _current_version() {
+	git describe --tags --abbrev=0 2>/dev/null || echo "main"
+}
+
+function print_changelog_updates() {
+	# Args: previous_version current_version
+	# Prints CHANGELOG sections newer than previous_version (or latest section if previous empty)
+	[ "${SKIP_CHANGELOG:-0}" = "1" ] && return 0
+	local prev="$1" curr="$2" file="$INSTALL_DIR/CHANGELOG.md"
+	[ ! -f "$file" ] && return 0
+	echo "==================== CHANGELOG (${prev:-new install} -> ${curr}) ===================="
+	if [ -z "$prev" ] || [ "$prev" = "main" ]; then
+		awk '/^### v/{if(++c>1) exit} {print}' "$file"
+	elif [ "$prev" != "$curr" ]; then
+		awk -v prev="$prev" 'BEGIN{p=1} /^### v/{ if($2==prev){exit} } { if(p) print }' "$file"
+	else
+		# Same version; maybe first install pinned to existing version
+		awk '/^### v/{if(++c>1) exit} {print}' "$file"
+	fi
+	echo "================================================================================"
+}
+
 function validate_origin() {
 	local origin
 	origin=$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || echo "")
@@ -264,10 +286,18 @@ function print_chores_message() {
 }
 
 # --- MAIN LOGIC ---
+PRE_VERSION=""
+if [ -d "$INSTALL_DIR/.git" ]; then
+	PRE_VERSION=$(cd "$INSTALL_DIR" && _current_version)
+fi
 install_or_update_repo
 ensure_printer_user_access
 setup_venv
 tighten_permissions
+POST_VERSION=$(cd "$INSTALL_DIR" && _current_version)
+if [ "$PRE_VERSION" != "$POST_VERSION" ]; then
+	print_changelog_updates "$PRE_VERSION" "$POST_VERSION" || true
+fi
 check_for_update_and_print
 
 # --- CRON SETUP ---
