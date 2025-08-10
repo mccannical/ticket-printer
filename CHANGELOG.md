@@ -1,5 +1,9 @@
 ## Changelog
 
+### v1.0.11
+- Installer: print relevant CHANGELOG sections on install/update (skippable via SKIP_CHANGELOG=1)
+- Hardening: cumulative improvements from v1.0.9 & v1.0.10 (see entries below)
+
 ### v1.0.9
 - Security: restrict config dir & UUID file permissions; support TICKET_PRINTER_CONFIG_DIR
 - Ops: add systemd service unit template with hardening directives
