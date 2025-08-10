@@ -1,6 +1,4 @@
-import socket
 import requests
-import time
 from datetime import datetime
 
 
@@ -18,10 +16,25 @@ def get_last_checkin_time():
     return datetime.utcnow().isoformat() + 'Z'
 
 
+
+import subprocess
+
 def get_printer_status():
-    """Stub for printer status. Replace with actual printer check logic."""
-    # TODO: Implement actual printer status check
-    return "OK"
+    """
+    Gather information about locally attached printers using lpstat.
+    Returns a string with printer info or error message.
+    """
+    try:
+        # Get default printer
+        default = subprocess.check_output(["lpstat", "-d"]).decode().strip()
+    except Exception:
+        default = "No default printer found"
+    try:
+        # Get all printers and their status
+        printers = subprocess.check_output(["lpstat", "-p"]).decode().strip()
+    except Exception as e:
+        printers = f"Error: {e}"
+    return f"{default}\n{printers}"
 
 
 def gather_env_info():
