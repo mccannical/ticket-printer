@@ -10,6 +10,29 @@ VENV_DIR=".venv"
 CRON_MARKER="# ticket-printer managed"
 PRINTER_USER="${PRINTER_USER:-printer}"  # Optional system user expected to run the service
 
+# --- Early permission sanity check ---
+PARENT_DIR="$(dirname "$INSTALL_DIR")"
+if [ ! -d "$PARENT_DIR" ]; then
+	if ! mkdir -p "$PARENT_DIR" 2>/dev/null; then
+		echo "[ERROR] Cannot create parent directory $PARENT_DIR. Run with sudo or choose a writable INSTALL_DIR (e.g. \"$HOME/ticket-printer\")." >&2
+		exit 1
+	fi
+fi
+if [ ! -w "$PARENT_DIR" ]; then
+	if [ "$(id -u)" -ne 0 ]; then
+		case "$INSTALL_DIR" in
+			/opt/*|/usr/*)
+				echo "[ERROR] No write permission for $PARENT_DIR. Re-run with: sudo INSTALL_DIR=$INSTALL_DIR bash <(curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh)" >&2
+				exit 1
+				;;
+			*)
+				echo "[ERROR] No write permission for $PARENT_DIR. Pick a different INSTALL_DIR within your home directory." >&2
+				exit 1
+				;;
+		esac
+	fi
+fi
+
 # Release selection strategy:
 # CHANNEL=stable (default) -> track latest GitHub release tag (vX.Y.Z)
 # CHANNEL=main            -> track main branch (development)
@@ -65,6 +88,7 @@ function install_or_update_repo() {
 				rm -rf "$INSTALL_DIR"
 			else
 				echo "[ERROR] $INSTALL_DIR exists and is not empty. Set FORCE_REPLACE=1 to overwrite, or set INSTALL_DIR to a different path." >&2
+				echo "[HINT] If you tried 'FORCE_REPLACE=1 curl ... | bash' the variable only applied to curl. Instead use: export FORCE_REPLACE=1; curl ... | bash  OR  curl ... | FORCE_REPLACE=1 bash" >&2
 				exit 1
 			fi
 		fi
