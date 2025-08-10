@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# Detect being executed via sudo with process substitution which loses /dev/fd handle
+if [[ "$0" =~ ^/dev/fd/ && -n "${SUDO_USER:-}" ]]; then
+	echo "[WARN] Script appears to be run via process substitution with sudo (e.g. sudo bash <(curl ...)). This can fail on some systems." >&2
+	echo "[HINT] Prefer: curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | sudo PRINTER_USER=printer bash" >&2
+	sleep 1
+fi
+
 # --- CONFIG ---
 REPO="mccannical/ticket-printer"
 # Allow override via env; default system-wide path

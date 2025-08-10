@@ -17,7 +17,7 @@ CHANNEL=main curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-prin
 
 2. Pin a specific release (no auto-upgrades unless you change VERSION):
 ```sh
-VERSION=v1.0.7 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
+VERSION=v1.0.8 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | bash
 ```
 
 3. Switch an existing install:
@@ -25,7 +25,7 @@ VERSION=v1.0.7 curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-pr
 cd ~/ticket-printer
 CHANNEL=stable ./install.sh          # move to stable
 CHANNEL=main ./install.sh            # move to main
-VERSION=v1.0.7 ./install.sh          # pin exact version
+VERSION=v1.0.8 ./install.sh          # pin exact version
 ```
 
 ## What the Installer Does
@@ -102,10 +102,11 @@ git -C ~/ticket-printer describe --tags --abbrev=0 || echo 'on main'
 Re-run installer with explicit channel:
 ```sh
 CHANNEL=stable /opt/ticket-printer/install.sh
-Force reinstall into /opt overwriting existing directory:
+Force reinstall into /opt overwriting existing directory (avoid process substitution with sudo):
 ```sh
-sudo FORCE_REPLACE=1 bash <(curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh)
+curl -fsSL https://raw.githubusercontent.com/mccannical/ticket-printer/main/install.sh | sudo FORCE_REPLACE=1 PRINTER_USER=printer bash
 ```
+Process substitution form (sudo bash <(curl ...)) can fail on some systems (/dev/fd not propagated); prefer the pipe form above.
 
 Override detected version/user-agent (packaging scenarios):
 ```sh

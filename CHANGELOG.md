@@ -1,5 +1,9 @@
 ## Changelog
 
+### v1.0.8
+- Installer: detect sudo process substitution misuse and warn
+- Docs: recommend pipe form over process substitution; update pin examples to v1.0.8
+
 ### v1.0.7
 - Installer: early permission checks & clearer FORCE_REPLACE usage hint
 
