@@ -1,3 +1,0 @@
-requests==2.32.3
-jsonschema==4.22.0
-python-systemd; platform_system=="Linux"

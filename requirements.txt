@@ -1,3 +1,0 @@
-## Aggregated requirements for convenience (runtime + dev)
--r requirements.runtime.txt
--r requirements.dev.txt
